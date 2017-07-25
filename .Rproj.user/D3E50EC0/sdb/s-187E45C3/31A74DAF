@@ -1,0 +1,20 @@
+{
+    "collab_server" : "",
+    "contents" : "########################################## LOAD DATA ######################################################\n\nlibrary(rgdal)\nsetwd(\"data\")\nshape<-readOGR(\".\", \"DZ_2011_EoR_Aberdeen_City\")\n\n################################## POLYGON AGGREGATOR FUNCTION ############################################\n\npolygonaggregator<-function(clusternumber, desiredpopulation){\nlibrary(plyr)\nlibrary(dplyr)\nlibrary(rgeos)\n\n### Create centroids\nshape2<-as.data.frame(shape)\ntrueCentroids = gCentroid(shape,byid=TRUE)\ntrueCentroids<-as.data.frame(trueCentroids)\ntrueCentroids$Data.Zone<-shape2$GSS_CODEDZ\n\n### add the population data\npopulation<-read.csv(\"2013-sape-t1ap.csv\")\npopulation$population<-sub(\",\", \"\", population$population)\npopulation$population<-as.numeric(population$population)\ntrueCentroids<-merge(trueCentroids, population, by=\"Data.Zone\")\ntrueCentroids2 <- trueCentroids[,-1]\nrownames(trueCentroids2) <- trueCentroids[,1]\n\n# Partition data into 'clusternumber' number of clusters\nkm <- kmeans(trueCentroids2, centers = clusternumber)\nplot(trueCentroids2$x, trueCentroids2$y, col = km$cluster, pch = 20)\ntrueCentroids2$cluster<-km$cluster\n\n# Create descriptive statistics for each cluster\noutput<-trueCentroids2 %>%\n  group_by(cluster) %>%\n  summarise(sum=sum(population), sd=sd(population))\n\n# Create Mean Absolute Error (MAE) statistic to measure accuracy based on how well \n# cluster attribute value compares to desired attribute value\noutput$error<-desiredpopulation-output$sum\ndataoutput<-cbind(mean(output$sum), max(output$cluster), mean(abs(output$error)) )\ncolnames(dataoutput)<-c(\"meansummedpopulation\", \"clusternumber\", \"mae\")\nreturn(dataoutput)\n}\n\n########################################## TEST #################################################\n\npolygonaggregator(2, 12000)\npolygonaggregator(10, 12000)\n\n\n########################################## BATCH ################################################\n\n# through a sequence through lots of combinations of parameters \nclusternumber<-seq(2, 100)\ndatainput<-as.data.frame(clusternumber)\ndatainput$desiredpopulation<-12000\nfinaloutput<-mdply(datainput,polygonaggregator)\n\n######################################### OUTPUT RESULT #########################################\n\n# Find clusternumber with lowest MAE, then run the k-means with this cluster number\n# Then append to the original shapefile and create plot of the clusters\n\nshape2<-as.data.frame(shape)\ntrueCentroids = gCentroid(shape,byid=TRUE)\ntrueCentroids<-as.data.frame(trueCentroids)\ntrueCentroids$Data.Zone<-shape2$GSS_CODEDZ\npopulation<-read.csv(\"2013-sape-t1ap.csv\")\npopulation$population<-sub(\",\", \"\", population$population)\npopulation$population<-as.numeric(population$population)\ntrueCentroids<-merge(trueCentroids, population, by=\"Data.Zone\")\ntrueCentroids2 <- trueCentroids[,-1]\nrownames(trueCentroids2) <- trueCentroids[,1]\n\n# Partition data into 'clusternumber' number of clusters\nkm <- kmeans(trueCentroids2, centers = finaloutput$clusternumber[finaloutput$mae %in% min(finaloutput$mae)==T])\ntrueCentroids2$cluster<-km$cluster\noutput<-trueCentroids2 %>%\n  group_by(cluster) %>%\n  summarise(sum=sum(population), sd=sd(population))\n\n#### plot final polygons\nshape$clusternumber<-km$cluster\nplot(shape, col=km$cluster)\n",
+    "created" : 1500986663412.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "2740873120",
+    "id" : "31A74DAF",
+    "lastKnownWriteTime" : 1500986857,
+    "last_content_update" : 1500986857827,
+    "path" : "C:/Users/mcherrie/Google Drive/ProjectFiles/polygonaggregator_MC/polygonaggregator.R",
+    "project_path" : "polygonaggregator.R",
+    "properties" : {
+    },
+    "relative_order" : 1,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}
